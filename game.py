@@ -59,10 +59,7 @@ class Game:
         elif keys_pressed[pygame.K_RIGHT]:
             self.go_right()
 
-        for obstacle in self.gamestate['obstacles']:
-            obstacle[1] += obstacle[3]
-            if obstacle[1] > HEIGHT:
-                self.replace_obstacle(obstacle)
+        self.run_obstacles()
 
     def display(self):
         if self.screen:
@@ -78,6 +75,12 @@ class Game:
 
     def go_right(self):
         self.gamestate['player'][0] = min(WIDTH - PADDING, self.gamestate['player'][0] + SPEED)
+
+    def run_obstacles(self):
+        for obstacle in self.gamestate['obstacles']:
+            obstacle[1] += obstacle[3]
+            if obstacle[1] > HEIGHT:
+                self.replace_obstacle(obstacle)
 
     def add_obstacle(self, num):
         for _ in range(num):
