@@ -34,30 +34,82 @@ class Player:
 
 
 class Obstacle:
+    new_ID = 0
+
     def __init__(self):
         self.x = randint(0, WIDTH)
         self.y = 0
-        self.size = randint(10, 20)
+        self.size = randint(20, 30)
         self.speed = randint(50, 80) / 10
+        self.ID = Obstacle.new_ID
+        Obstacle.new_ID += 1
 
     def move_down(self):
         self.y += self.speed
 
 
 class Game:
-    def __init__(self, human=True):
+    def __init__(self, human=True, display=True):
+
+        self.done = False
+        self.reward = 0
+        self.action_space = 3
+        self.state_space = 11
+
         self.player = Player()
         self.obstacles = []
-        self.done = False
         self.score = 1
-        self.fps = 30
+        self.fps = 300
+        self.IDs = []
         self.add_obstacle(10)
 
-    def start(self, display=True):
-        clock = pygame.time.Clock()
         if display:
             self.screen = pygame.display.set_mode([WIDTH + PADDING, HEIGHT + PADDING])
             self.font = pygame.font.Font(None, 24)
+
+    def reset(self):
+        self.__init__()
+        return self._get_state_vector()
+
+    def step(self, action):
+        if action == 0:
+            self.player.go_left()
+        elif action == 2:
+            self.player.go_right()
+
+        self.update()
+        self.display()
+        state_vector = self._get_state_vector()
+        return state_vector, self.reward, self.done
+
+    def _get_state_vector(self):
+        state_vector = [self.player.x, self.player.y]
+        three_nearest = []
+
+        for obstacle in self.obstacles:
+            # state_vector.append(int((obstacle.x - self.player.x) > (obstacle.size + self.player.size)))
+            # state_vector.append(int((obstacle.x - self.player.x - 2 * PADDING) > obstacle.size + self.player.size))
+            # state_vector.append(int((obstacle.x - self.player.x + 2 * PADDING) > obstacle.size + self.player.size))
+            # state_vector.append(int((self.player.y - obstacle.y) > (obstacle.size + self.player.size)))
+            if len(three_nearest) < 3:
+                three_nearest.append(obstacle)
+
+            elif any([o.y < obstacle.y for o in three_nearest]):
+                farthest = min(three_nearest, key=lambda o: o.y)
+                three_nearest.remove(farthest)
+                three_nearest.append(obstacle)
+
+        for obstacle in three_nearest:
+            state_vector.extend([obstacle.x, obstacle.y])
+            state_vector.append((obstacle.x - self.player.x) > (obstacle.size + self.player.size) and (self.player.y - obstacle.y) > (obstacle.size + self.player.size))
+
+        # state_vector.append(int(self.player.x <= (2 * PADDING)))
+        # state_vector.append(int(self.player.y >= (WIDTH - PADDING)))
+        return state_vector
+
+
+    def start(self, display=True):
+        clock = pygame.time.Clock()
 
         while not self.done:
             for event in pygame.event.get():
@@ -80,7 +132,16 @@ class Game:
             self.player.go_right()
 
         self.score += 1
+        original_score = self.score
         self.move_obstacles()
+
+        for obstacle in self.obstacles:
+            if (self.player.y - obstacle.y) < (obstacle.size + self.player.size) and obstacle.ID not in self.IDs:
+                self.IDs.append(obstacle.ID)
+                self.reward = 10 if original_score <= self.score else -10
+                break
+        else:
+            self.reward = 0
 
     def display(self):
         if self.screen:
