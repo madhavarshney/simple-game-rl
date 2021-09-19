@@ -72,11 +72,20 @@ class DQN:
 
 def make_plot(scores):
     plt.plot([i for i in range(len(scores))], scores)
+    # means = []
+    # curr_sum = 0
+    # for i in range(len(scores)):
+    #     curr_sum += scores[i]
+    #     means.append(curr_sum / (i + 1))
+
     means = []
-    curr_sum = 0
     for i in range(len(scores)):
-        curr_sum += scores[i]
-        means.append(curr_sum / (i + 1))
+        if i < 5:
+            part = scores[:i+1]
+        else:
+            part = scores[i-4:i+1]
+        means.append(sum(part) / len(part))
+
     plt.plot([i for i in range(len(means))], means)
     plt.xlabel('episodes')
     plt.ylabel('score')
