@@ -1,187 +1,181 @@
-from math import sqrt, log
+from dataclasses import dataclass, field
+from enum import Enum
+from math import sqrt
 from random import randint
 from dataclasses import dataclass
 
 import pygame
 
-WIDTH = 600
-HEIGHT = 900
-PADDING = 8
-SPEED = 10
+WIDTH = 300
+HEIGHT = 300
 
 BLUE = (29, 140, 246)
-GREY = (100, 100, 100)
+GREY = (180, 180, 180)
+DARK_GREY = (80, 80, 80)
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 
-def check_collision(obj_one, obj_two):
-    return (
-        sqrt((obj_one.x - obj_two.x) ** 2 + (obj_one.y - obj_two.y) ** 2)
-        <= obj_one.size + obj_two.size
-    )
-
-def distance(obj_one, obj_two):
-    return sqrt((obj_one.x - obj_two.x) ** 2 + (obj_one.y - obj_two.y) ** 2)
 
 @dataclass
 class Player:
-    x : int = WIDTH / 2
-    y : int = 8 * HEIGHT / 9
-    size : int = 2 * PADDING
+    x: int = WIDTH / 2
+    y: int = HEIGHT - 40
+    padding: int = 9
+    speed: int = 15
+    size: int = 15
 
     def go_left(self):
-        self.x = max(2 * PADDING, self.x - SPEED)
+        self.x = max(self.x - self.speed, self.padding)
 
     def go_right(self):
-        self.x = min(WIDTH - PADDING, self.x + SPEED)
+        self.x = min(self.x + self.speed, WIDTH - self.padding)
 
 
+@dataclass
 class Obstacle:
-
-    def __init__(self):
-        self.x = randint(0, WIDTH)
-        self.y = 0
-        self.size = randint(20, 30)
-        self.speed = randint(50, 80) / 10
+    x: int = field(default_factory=lambda: randint(0, WIDTH))
+    y: int = field(default_factory=lambda: randint(-100, 0))
+    speed: int = 14
+    size: int = 25
+    hit: bool = False
 
     def move_down(self):
         self.y += self.speed
 
 
 class Game:
-    def __init__(self, human=True, display=True):
+    class Mode(Enum):
+        SEEK = 1
+        AVOID = 2
 
-        self.done = False
-        self.reward = 0
+    def __init__(self, mode=Mode.SEEK, should_display=True):
+        state_vector = self.reset()
+
+        self.mode = mode
         self.action_space = 3
-        self.state_space = 29
+        self.state_space = len(state_vector)
 
-        self.player = Player()
-        self.obstacles = []
-        self.score = 1
-        self.fps = 30
-        self.display = display
-        self.add_obstacle(10)
-
-        if self.display:
-            self.screen = pygame.display.set_mode([WIDTH + PADDING, HEIGHT + PADDING])
+        if should_display:
+            self.screen = pygame.display.set_mode([WIDTH, HEIGHT])
             self.font = pygame.font.Font(None, 24)
 
     def reset(self):
-        self.__init__(display=self.display)
+        self.player = Player()
+        self.obstacles = []
+        self.over = False
+        self.score = 0
+        self.num_obstacles = 2
+
+        self.obstacles.append(Obstacle())
+        for _ in range(1, self.num_obstacles):
+            self._add_obstacle()
+
         return self._get_state_vector()
 
-    def step(self, action):
-        if action == 0:
-            self.player.go_left()
-        elif action == 2:
-            self.player.go_right()
-
-        self.update()
-        if self.display:
-            self.show()
-        state_vector = self._get_state_vector()
-        return state_vector, self.reward, self.done
-
-    def _get_state_vector(self):
-        state_vector = [self.player.x]
-        three_nearest = []
-
-        for obstacle in self.obstacles:
-            # state_vector.append(int((obstacle.x - self.player.x) > (obstacle.size + self.player.size)))
-            # state_vector.append(int((obstacle.x - self.player.x - 2 * PADDING) > obstacle.size + self.player.size))
-            # state_vector.append(int((obstacle.x - self.player.x + 2 * PADDING) > obstacle.size + self.player.size))
-            # state_vector.append(int((self.player.y - obstacle.y) > (obstacle.size + self.player.size)))
-            if len(three_nearest) < 7:
-                three_nearest.append(obstacle)
-
-            elif any([o.y < obstacle.y for o in three_nearest]) and obstacle.y - obstacle.size < self.player.y:
-                farthest = min(three_nearest, key=lambda o: o.y)
-                three_nearest.remove(farthest)
-                three_nearest.append(obstacle)
-
-        for obstacle in three_nearest:
-            state_vector.extend([obstacle.x, obstacle.y, distance(obstacle, self.player)])
-            state_vector.append((obstacle.x - self.player.x) > (obstacle.size + self.player.size) and (self.player.y - obstacle.y) > (obstacle.size + self.player.size))
-
-        # state_vector.append(int(self.player.x <= (2 * PADDING)))
-        # state_vector.append(int(self.player.y >= (WIDTH - PADDING)))
-        return state_vector
-
-
-    def start(self):
+    def play(self):
+        """
+        Human player
+        """
         clock = pygame.time.Clock()
 
-        while not self.done:
+        while not self.over:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    self.done = True
+                    self.over = True
 
-            self.update()
-            if self.display:
-                self.show()
+            keys_pressed = pygame.key.get_pressed()
+            action = 0 if keys_pressed[pygame.K_LEFT] else 2 if keys_pressed[pygame.K_RIGHT] else 1
 
-            fps = self.fps # * log(self.score) * 3 / 5
-            clock.tick(fps if fps > self.fps else self.fps)
+            self.step(action)
+            clock.tick(15)
 
-    def update(self):
-        keys_pressed = pygame.key.get_pressed()
-        if keys_pressed[pygame.K_LEFT]:
+    def step(self, action: int):
+        """
+        Actions:
+         0 - left
+         1 - noop
+         2 - right
+        """
+        reward = 0
+
+        if action == 0:
             self.player.go_left()
+            reward -= 1
 
-        elif keys_pressed[pygame.K_RIGHT]:
+        elif action == 2:
             self.player.go_right()
+            reward -= 1
 
-        self.score += 1
-        self.move_obstacles()
-
-        flag = False
         for obstacle in self.obstacles:
-            if (self.player.y - obstacle.y) < (obstacle.size + self.player.size):
-                self.reward = distance(obstacle, self.player) - (obstacle.size + self.player.size)
-                if self.reward < 0:
-                    self.reward *= 1000
-                # print('Scores:', original_score, self.score)
-                # print('Info:', self.reward, abs(obstacle.x - self.player.x), (obstacle.size + self.player.size))
-                # print('\n')
-                flag = True
+            if not obstacle.hit and self._check_circle_collision(obstacle, self.player):
+                if self.mode == Game.Mode.SEEK:
+                    reward += 200
+                    self.score += 1
+                    obstacle.hit = True
+                elif self.mode == Game.Mode.AVOID:
+                    reward -= 1000
+                    self.over = True
 
-        if not flag:
-            self.reward = 0
-
-    def show(self):
-        if self.screen:
-            self.screen.fill(WHITE)
-            pygame.draw.circle(self.screen, BLUE, (self.player.x, self.player.y), self.player.size)
-
-            for obstacle in self.obstacles:
-                pygame.draw.circle(self.screen, GREY, (obstacle.x, obstacle.y), obstacle.size)
-
-            if self.font:
-                text = self.font.render(f'Score: {self.score}', False, BLACK)
-                self.screen.blit(text, (10, 10))
-
-            pygame.display.update()
-
-    def move_obstacles(self):
         for obstacle in self.obstacles:
             obstacle.move_down()
-            if check_collision(self.player, obstacle):
-                self.score -= sqrt(self.score) if sqrt(self.score) > 2 else self.score
-                self.score = round(self.score, 2)
+
             if obstacle.y > HEIGHT:
-                self.replace_obstacle(obstacle)
+                if not obstacle.hit:
+                    if self.mode == Game.Mode.SEEK:
+                        reward -= 1000
+                        self.over = True
+                    elif self.mode == Game.Mode.AVOID:
+                        reward += 200
+                        self.score += 1
 
-    def add_obstacle(self, num):
-        for _ in range(num):
-            self.obstacles.append(Obstacle())
+                self.obstacles.remove(obstacle)
+                self._add_obstacle()
 
-    def replace_obstacle(self, old_obstacle):
-        self.add_obstacle(1)
-        self.obstacles.remove(old_obstacle)
+        if self.screen:
+            self._render()
+
+        return reward, self._get_state_vector(), self.over
+
+    def _get_state_vector(self):
+        obstacle_values = []
+
+        for obstacle in self.obstacles:
+            obstacle_values.extend([
+                (self.player.x - obstacle.x) / WIDTH,
+                (self.player.y - obstacle.y) / HEIGHT
+            ])
+
+        return obstacle_values
+
+    def _render(self):
+        """
+        Render the game state to the screen using pygame
+        """
+        self.screen.fill(WHITE)
+
+        text = self.font.render(f'Score: {int(self.score)}', False, BLACK)
+        self.screen.blit(text, (10, 10))
+
+        pygame.draw.circle(self.screen, BLUE, (self.player.x, self.player.y), self.player.size)
+
+        for obstacle in self.obstacles:
+            color = DARK_GREY if not obstacle.hit else GREY
+            pygame.draw.circle(self.screen, color, (obstacle.x, obstacle.y), obstacle.size)
+
+        pygame.display.update()
+
+    def _add_obstacle(self):
+        y = min(self.obstacles[-1].y - 250, 0) # TODO: check between game modes
+        self.obstacles.append(Obstacle(y=randint(y-100, y)))
+
+    def _check_circle_collision(self, obj_one, obj_two):
+        return (
+            sqrt((obj_one.x - obj_two.x) ** 2 + (obj_one.y - obj_two.y) ** 2)
+            <= obj_one.size + obj_two.size
+        )
 
 
 if __name__ == '__main__':
     pygame.init()
-    Game().start()
+    Game().play()
     pygame.quit()

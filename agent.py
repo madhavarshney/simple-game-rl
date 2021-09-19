@@ -1,8 +1,8 @@
-import time
 import random
 from collections import deque
 
 import pygame
+import pygame.event
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -20,7 +20,7 @@ class DQN:
         self.state_space = env.state_space
         self.epsilon = 1
         self.gamma = .95
-        self.batch_size = 10
+        self.batch_size = 64
         self.epsilon_min = .01
         self.epsilon_decay = .995
         # self.learning_rate = 0.001
@@ -70,47 +70,60 @@ class DQN:
             self.epsilon *= self.epsilon_decay
 
 
-def train_dqn(env, episode):
+def make_plot(scores):
+    plt.plot([i for i in range(len(scores))], scores)
+    plt.xlabel('episodes')
+    plt.ylabel('score')
 
-    loss = []
+
+def train_dqn(env, episode, scores):
     agent = DQN(env)
-    max_steps = 250
+    max_steps = 10000
+
+    plt.ion()
+    plt.show()
 
     for e in range(episode):
         state = env.reset()
         state = np.reshape(state, (1, env.state_space))
-        rewards = 0
+        score = 0
 
         for step_num in range(max_steps):
             action = agent.act(state)
-            next_state, reward, done = env.step(action)
-            rewards += reward
+            reward, next_state, done = env.step(action)
+            score += reward
             next_state = np.reshape(next_state, (1, env.state_space))
             agent.remember(state, action, reward, next_state, done)
             state = next_state
             agent.replay()
 
-            # print(action, score, reward, next_state, done)
+            # print(action, next_state, reward, score, done)
+
             if done or step_num == max_steps - 1:
-                print(f"episode: {e}/{episode}, score: {rewards}, game score: {env.score}, time: {step_num}")
+                print(f"episode: {e}/{episode}, score: {score}, game score: {env.score}, steps: {step_num + 1}")
                 break
 
-        loss.append(rewards)
+        scores.append(env.score)
 
-    return loss
+        make_plot(scores)
+        plt.draw()
+        plt.pause(0.001)
 
 
 if __name__ == '__main__':
     np.random.seed(0)
     pygame.init()
+    pygame.event.set_blocked(None)
 
-    env = Game()
-    num_ep = 100
-    loss = train_dqn(env, num_ep)
+    env = Game(mode=Game.Mode.SEEK, should_display=True)
+    loss = []
 
-    pygame.quit()
+    try:
+        num_ep = 500
+        train_dqn(env, num_ep, loss)
+    except KeyboardInterrupt:
+        pygame.quit()
 
-    plt.plot([i for i in range(num_ep)], loss)
-    plt.xlabel('episodes')
-    plt.ylabel('reward')
-    plt.show()
+        plt.ioff()
+        make_plot()
+        plt.show()
