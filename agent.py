@@ -92,12 +92,12 @@ def train_dqn(env, episode, scores):
     for e in range(episode):
         state = env.reset()
         state = np.reshape(state, (1, env.state_space))
-        score = 0
+        net_rewards = 0
 
         for step_num in range(max_steps):
             action = agent.act(state)
             reward, next_state, done = env.step(action)
-            score += reward
+            net_rewards += reward
             next_state = np.reshape(next_state, (1, env.state_space))
             agent.remember(state, action, reward, next_state, done)
             state = next_state
@@ -106,7 +106,7 @@ def train_dqn(env, episode, scores):
             # print(action, next_state, reward, score, done)
 
             if done or step_num == max_steps - 1:
-                print(f"episode: {e}/{episode}, score: {score}, game score: {env.score}, steps: {step_num + 1}")
+                print(f"episode: {e}/{episode}, net rewards: {net_rewards}, game score: {env.score}, steps: {step_num + 1}")
                 break
 
         scores.append(env.score)
@@ -122,14 +122,14 @@ if __name__ == '__main__':
     pygame.event.set_blocked(None)
 
     env = Game(mode=Game.Mode.SEEK, should_display=True)
-    loss = []
+    scores = []
 
     try:
-        num_ep = 5
-        train_dqn(env, num_ep, loss)
+        num_ep = 500
+        train_dqn(env, num_ep, scores)
     except KeyboardInterrupt:
         pygame.quit()
 
         plt.ioff()
-        make_plot(loss)
+        make_plot(scores)
         plt.show()
