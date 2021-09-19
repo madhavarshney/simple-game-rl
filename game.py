@@ -20,6 +20,9 @@ def check_collision(obj_one, obj_two):
         <= obj_one.size + obj_two.size
     )
 
+def distance(obj_one, obj_two):
+    return sqrt((obj_one.x - obj_two.x) ** 2 + (obj_one.y - obj_two.y) ** 2)
+
 @dataclass
 class Player:
     x : int = WIDTH / 2
@@ -34,15 +37,12 @@ class Player:
 
 
 class Obstacle:
-    new_ID = 0
 
     def __init__(self):
         self.x = randint(0, WIDTH)
         self.y = 0
         self.size = randint(20, 30)
         self.speed = randint(50, 80) / 10
-        self.ID = Obstacle.new_ID
-        Obstacle.new_ID += 1
 
     def move_down(self):
         self.y += self.speed
@@ -54,13 +54,12 @@ class Game:
         self.done = False
         self.reward = 0
         self.action_space = 3
-        self.state_space = 11
+        self.state_space = 29
 
         self.player = Player()
         self.obstacles = []
         self.score = 1
         self.fps = 300
-        self.IDs = []
         self.add_obstacle(10)
 
         if display:
@@ -83,7 +82,7 @@ class Game:
         return state_vector, self.reward, self.done
 
     def _get_state_vector(self):
-        state_vector = [self.player.x, self.player.y]
+        state_vector = [self.player.x]
         three_nearest = []
 
         for obstacle in self.obstacles:
@@ -91,16 +90,16 @@ class Game:
             # state_vector.append(int((obstacle.x - self.player.x - 2 * PADDING) > obstacle.size + self.player.size))
             # state_vector.append(int((obstacle.x - self.player.x + 2 * PADDING) > obstacle.size + self.player.size))
             # state_vector.append(int((self.player.y - obstacle.y) > (obstacle.size + self.player.size)))
-            if len(three_nearest) < 3:
+            if len(three_nearest) < 7:
                 three_nearest.append(obstacle)
 
-            elif any([o.y < obstacle.y for o in three_nearest]):
+            elif any([o.y < obstacle.y for o in three_nearest]) and obstacle.y - obstacle.size < self.player.y:
                 farthest = min(three_nearest, key=lambda o: o.y)
                 three_nearest.remove(farthest)
                 three_nearest.append(obstacle)
 
         for obstacle in three_nearest:
-            state_vector.extend([obstacle.x, obstacle.y])
+            state_vector.extend([obstacle.x, obstacle.y, distance(obstacle, self.player)])
             state_vector.append((obstacle.x - self.player.x) > (obstacle.size + self.player.size) and (self.player.y - obstacle.y) > (obstacle.size + self.player.size))
 
         # state_vector.append(int(self.player.x <= (2 * PADDING)))
@@ -120,7 +119,7 @@ class Game:
             if display:
                 self.display()
 
-            fps = self.fps * log(self.score) * 3 / 5
+            fps = self.fps # * log(self.score) * 3 / 5
             clock.tick(fps if fps > self.fps else self.fps)
 
     def update(self):
@@ -135,12 +134,18 @@ class Game:
         original_score = self.score
         self.move_obstacles()
 
+        flag = False
         for obstacle in self.obstacles:
-            if (self.player.y - obstacle.y) < (obstacle.size + self.player.size) and obstacle.ID not in self.IDs:
-                self.IDs.append(obstacle.ID)
-                self.reward = 10 if original_score <= self.score else -10
-                break
-        else:
+            if (self.player.y - obstacle.y) < (obstacle.size + self.player.size):
+                self.reward = abs(obstacle.x - self.player.x) - (obstacle.size + self.player.size)
+                if self.reward < 0:
+                    self.reward *= 10
+                    print('Scores:', original_score, self.score)
+                    print('Info:', self.reward, abs(obstacle.x - self.player.x), (obstacle.size + self.player.size))
+                    print('\n')
+                flag = True
+
+        if not flag:
             self.reward = 0
 
     def display(self):
@@ -152,7 +157,7 @@ class Game:
                 pygame.draw.circle(self.screen, GREY, (obstacle.x, obstacle.y), obstacle.size)
 
             if self.font:
-                text = self.font.render(f'Score: {self.score // 100}', False, BLACK)
+                text = self.font.render(f'Score: {self.score}', False, BLACK)
                 self.screen.blit(text, (10, 10))
 
             pygame.display.update()
@@ -162,6 +167,7 @@ class Game:
             obstacle.move_down()
             if check_collision(self.player, obstacle):
                 self.score -= sqrt(self.score) if sqrt(self.score) > 2 else self.score
+                print('ouch')
             if obstacle.y > HEIGHT:
                 self.replace_obstacle(obstacle)
 
@@ -174,7 +180,7 @@ class Game:
         self.obstacles.remove(old_obstacle)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     pygame.init()
     Game().start()
     pygame.quit()

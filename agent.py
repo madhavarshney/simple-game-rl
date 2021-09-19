@@ -74,17 +74,17 @@ def train_dqn(env, episode):
 
     loss = []
     agent = DQN(env)
-    max_steps = 600
+    max_steps = 1000
 
     for e in range(episode):
         state = env.reset()
         state = np.reshape(state, (1, env.state_space))
-        score = 0
+        rewards = 0
 
         for step_num in range(max_steps):
             action = agent.act(state)
             next_state, reward, done = env.step(action)
-            score += reward
+            rewards += reward
             next_state = np.reshape(next_state, (1, env.state_space))
             agent.remember(state, action, reward, next_state, done)
             state = next_state
@@ -93,11 +93,10 @@ def train_dqn(env, episode):
             # print(action, score, reward, next_state, done)
 
             if done or step_num == max_steps - 1:
-                print(done)
-                print(f"episode: {e}/{episode}, score: {score}, game score: {env.score}, time: {step_num}")
+                print(f"episode: {e}/{episode}, score: {rewards}, game score: {env.score}, time: {step_num}")
                 break
 
-        loss.append(score)
+        loss.append(rewards)
 
     return loss
 
@@ -107,7 +106,7 @@ if __name__ == '__main__':
     pygame.init()
 
     env = Game()
-    num_ep = 20
+    num_ep = 100
     loss = train_dqn(env, num_ep)
 
     pygame.quit()
