@@ -10,14 +10,14 @@ from keras import Sequential
 from keras.layers import Dense
 from keras.optimizers import adam_v2
 
-from game import GameEnv
+from game import Game
 
 class DQN:
     """ Implementation of deep q learning algorithm """
 
-    def __init__(self, action_space, state_space):
-        self.action_space = action_space
-        self.state_space = state_space
+    def __init__(self, env):
+        self.action_space = env.action_space
+        self.state_space = env.state_space
         self.epsilon = 1
         self.gamma = .95
         self.batch_size = 10
@@ -71,34 +71,31 @@ class DQN:
 
 
 def train_dqn(env, episode):
-    action_space = 3
-    state_space = 1
-    max_steps = 60
 
     loss = []
-    agent = DQN(action_space, state_space)
+    agent = DQN(env)
+    max_steps = 250
 
     for e in range(episode):
         state = env.reset()
-        state = np.reshape(state, (1, state_space))
-        score = 0
+        state = np.reshape(state, (1, env.state_space))
+        rewards = 0
 
         for step_num in range(max_steps):
             action = agent.act(state)
-            reward, next_state, done = env.step(action)
-            score += reward
-            next_state = np.reshape(next_state, (1, state_space))
+            next_state, reward, done = env.step(action)
+            rewards += reward
+            next_state = np.reshape(next_state, (1, env.state_space))
             agent.remember(state, action, reward, next_state, done)
             state = next_state
             agent.replay()
 
             # print(action, score, reward, next_state, done)
-
             if done or step_num == max_steps - 1:
-                print(f"episode: {e}/{episode}, score: {score}, game score: {env.state.score}, time: {step_num}")
+                print(f"episode: {e}/{episode}, score: {rewards}, game score: {env.score}, time: {step_num}")
                 break
 
-        loss.append(score)
+        loss.append(rewards)
 
     return loss
 
@@ -107,8 +104,8 @@ if __name__ == '__main__':
     np.random.seed(0)
     pygame.init()
 
-    env = GameEnv()
-    num_ep = 20
+    env = Game()
+    num_ep = 100
     loss = train_dqn(env, num_ep)
 
     pygame.quit()
