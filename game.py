@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import Enum, IntEnum
 from math import sqrt
 from random import randint
 from dataclasses import dataclass
@@ -48,12 +48,15 @@ class Game:
         SEEK = 1
         AVOID = 2
 
-    def __init__(self, mode=Mode.SEEK, should_display=True):
-        state_vector = self.reset()
+    class Actions(IntEnum):
+        LEFT = 0
+        NOOP = 1
+        RIGHT = 2
 
+    def __init__(self, mode=Mode.AVOID, should_display=True):
         self.mode = mode
-        self.action_space = 3
-        self.state_space = len(state_vector)
+        self.screen = None
+        self.reset()
 
         if should_display:
             self.screen = pygame.display.set_mode([WIDTH, HEIGHT])
@@ -70,7 +73,12 @@ class Game:
         for _ in range(1, self.num_obstacles):
             self._add_obstacle()
 
-        return self._get_state_vector()
+        state_vector = self._get_state_vector()
+
+        self.action_space = len(Game.Actions)
+        self.state_space = len(state_vector)
+
+        return state_vector
 
     def play(self):
         """
@@ -98,13 +106,13 @@ class Game:
         """
         reward = 0
 
-        if action == 0:
+        if action == Game.Actions.LEFT:
             self.player.go_left()
-            reward -= 1
+            reward -= 2
 
-        elif action == 2:
+        elif action == Game.Actions.RIGHT:
             self.player.go_right()
-            reward -= 1
+            reward -= 2
 
         for obstacle in self.obstacles:
             if not obstacle.hit and self._check_circle_collision(obstacle, self.player):
@@ -165,7 +173,8 @@ class Game:
         pygame.display.update()
 
     def _add_obstacle(self):
-        y = min(self.obstacles[-1].y - 250, 0) # TODO: check between game modes
+        space = 250 if self.mode == Game.Mode.SEEK else 50
+        y = min(self.obstacles[-1].y - space, 0)
         self.obstacles.append(Obstacle(y=randint(y-100, y)))
 
     def _check_circle_collision(self, obj_one, obj_two):

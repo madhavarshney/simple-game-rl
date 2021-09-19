@@ -72,11 +72,6 @@ class DQN:
 
 def make_plot(scores):
     plt.plot([i for i in range(len(scores))], scores)
-    # means = []
-    # curr_sum = 0
-    # for i in range(len(scores)):
-    #     curr_sum += scores[i]
-    #     means.append(curr_sum / (i + 1))
 
     means = []
     for i in range(len(scores)):
@@ -91,14 +86,14 @@ def make_plot(scores):
     plt.ylabel('score')
 
 
-def train_dqn(env, episode, scores):
+def train_dqn(env, num_episodes, scores):
     agent = DQN(env)
     max_steps = 10000
 
     plt.ion()
     plt.show()
 
-    for e in range(episode):
+    for e in range(num_episodes):
         state = env.reset()
         state = np.reshape(state, (1, env.state_space))
         net_rewards = 0
@@ -115,7 +110,7 @@ def train_dqn(env, episode, scores):
             # print(action, next_state, reward, score, done)
 
             if done or step_num == max_steps - 1:
-                print(f"episode: {e}/{episode}, net rewards: {net_rewards}, game score: {env.score}, steps: {step_num + 1}")
+                print(f"episode: {e}/{num_episodes}, net rewards: {net_rewards}, game score: {env.score}, steps: {step_num + 1}")
                 break
 
         scores.append(env.score)
@@ -130,7 +125,7 @@ if __name__ == '__main__':
     pygame.init()
     pygame.event.set_blocked(None)
 
-    env = Game(mode=Game.Mode.SEEK, should_display=True)
+    env = Game(should_display=True)
     scores = []
 
     try:
