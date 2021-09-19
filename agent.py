@@ -33,7 +33,7 @@ class DQN:
         model.add(Dense(64, input_shape=(self.state_space,), activation='relu'))
         model.add(Dense(64, activation='relu'))
         model.add(Dense(self.action_space, activation='linear'))
-        model.compile(loss='mse', optimizer=adam_v2.Adam(lr=self.learning_rate))
+        model.compile(loss='mse', optimizer=adam_v2.Adam(learning_rate=self.learning_rate))
         return model
 
     def remember(self, state, action, reward, next_state, done):
@@ -72,6 +72,12 @@ class DQN:
 
 def make_plot(scores):
     plt.plot([i for i in range(len(scores))], scores)
+    means = []
+    curr_sum = 0
+    for i in range(len(scores)):
+        curr_sum += scores[i]
+        means.append(curr_sum / (i + 1))
+    plt.plot([i for i in range(len(means))], means)
     plt.xlabel('episodes')
     plt.ylabel('score')
 
@@ -119,11 +125,11 @@ if __name__ == '__main__':
     loss = []
 
     try:
-        num_ep = 500
+        num_ep = 5
         train_dqn(env, num_ep, loss)
     except KeyboardInterrupt:
         pygame.quit()
 
         plt.ioff()
-        make_plot()
+        make_plot(loss)
         plt.show()
