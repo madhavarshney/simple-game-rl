@@ -59,15 +59,16 @@ class Game:
         self.player = Player()
         self.obstacles = []
         self.score = 1
-        self.fps = 300
+        self.fps = 30
+        self.display = display
         self.add_obstacle(10)
 
-        if display:
+        if self.display:
             self.screen = pygame.display.set_mode([WIDTH + PADDING, HEIGHT + PADDING])
             self.font = pygame.font.Font(None, 24)
 
     def reset(self):
-        self.__init__()
+        self.__init__(display=self.display)
         return self._get_state_vector()
 
     def step(self, action):
@@ -77,7 +78,8 @@ class Game:
             self.player.go_right()
 
         self.update()
-        self.display()
+        if self.display:
+            self.show()
         state_vector = self._get_state_vector()
         return state_vector, self.reward, self.done
 
@@ -107,7 +109,7 @@ class Game:
         return state_vector
 
 
-    def start(self, display=True):
+    def start(self):
         clock = pygame.time.Clock()
 
         while not self.done:
@@ -116,8 +118,8 @@ class Game:
                     self.done = True
 
             self.update()
-            if display:
-                self.display()
+            if self.display:
+                self.show()
 
             fps = self.fps # * log(self.score) * 3 / 5
             clock.tick(fps if fps > self.fps else self.fps)
@@ -131,24 +133,23 @@ class Game:
             self.player.go_right()
 
         self.score += 1
-        original_score = self.score
         self.move_obstacles()
 
         flag = False
         for obstacle in self.obstacles:
             if (self.player.y - obstacle.y) < (obstacle.size + self.player.size):
-                self.reward = abs(obstacle.x - self.player.x) - (obstacle.size + self.player.size)
+                self.reward = distance(obstacle, self.player) - (obstacle.size + self.player.size)
                 if self.reward < 0:
-                    self.reward *= 10
-                    print('Scores:', original_score, self.score)
-                    print('Info:', self.reward, abs(obstacle.x - self.player.x), (obstacle.size + self.player.size))
-                    print('\n')
+                    self.reward *= 1000
+                # print('Scores:', original_score, self.score)
+                # print('Info:', self.reward, abs(obstacle.x - self.player.x), (obstacle.size + self.player.size))
+                # print('\n')
                 flag = True
 
         if not flag:
             self.reward = 0
 
-    def display(self):
+    def show(self):
         if self.screen:
             self.screen.fill(WHITE)
             pygame.draw.circle(self.screen, BLUE, (self.player.x, self.player.y), self.player.size)
@@ -167,7 +168,7 @@ class Game:
             obstacle.move_down()
             if check_collision(self.player, obstacle):
                 self.score -= sqrt(self.score) if sqrt(self.score) > 2 else self.score
-                print('ouch')
+                self.score = round(self.score, 2)
             if obstacle.y > HEIGHT:
                 self.replace_obstacle(obstacle)
 

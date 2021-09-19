@@ -74,7 +74,7 @@ def train_dqn(env, episode):
 
     loss = []
     agent = DQN(env)
-    max_steps = 1000
+    max_steps = 250
 
     for e in range(episode):
         state = env.reset()
@@ -91,7 +91,6 @@ def train_dqn(env, episode):
             agent.replay()
 
             # print(action, score, reward, next_state, done)
-
             if done or step_num == max_steps - 1:
                 print(f"episode: {e}/{episode}, score: {rewards}, game score: {env.score}, time: {step_num}")
                 break
